@@ -6,6 +6,9 @@
 
 import pandas as pd
 import numpy as np
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import auc, roc_auc_score, accuracy_score
+from csv import DictReader
 
 
 class Model(object):
@@ -13,10 +16,5 @@ class Model(object):
         pass
 
 
-
-
-
-
 if __name__ == '__main__':
     m = Model()
-
