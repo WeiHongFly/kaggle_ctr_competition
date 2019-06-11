@@ -7,7 +7,7 @@
 import pandas as pd
 import numpy as np
 from csv import DictReader
-from utils.feature_process import fit_mapper, type_mapper
+from utils.feature_process import fit_mapper, type_mapper, feature_transform
 from sklearn_pandas import DataFrameMapper
 from sklearn.linear_model.logistic import LogisticRegression
 from sklearn.linear_model import SGDClassifier
@@ -37,8 +37,8 @@ columns = ['id',
            'C20',
            'C21']
 
-batch_size = 200
-epoch = 10
+batch_size = 100000
+epoch = 3
 
 
 def extract_time(df):
@@ -58,8 +58,6 @@ class TrainModel(object):
     def __init__(self):
         self.mapper = fit_mapper()
 
-        assert isinstance(self.mapper, dict)
-        self.mapper_estimator = DataFrameMapper(list(zip(self.mapper.keys(), self.mapper.values())))
         self.df_obj = pd.read_csv("../data/train.csv", iterator=True, dtype=type_mapper)
         self.model = SGDClassifier(n_jobs=-1, verbose=3, loss="log")
 
@@ -71,9 +69,7 @@ class TrainModel(object):
             id = batch_df["id"]
             batch_df = batch_df.drop(columns=["id", "click"])
             batch_df = extract_time(batch_df)
-            print(batch_df.shape)
-            print(batch_df.columns)
-            clean_df = self.mapper_estimator.transform(batch_df)
+            clean_df = feature_transform(batch_df, self.mapper)
             self.model.fit(clean_df, label)
 
     def train(self):

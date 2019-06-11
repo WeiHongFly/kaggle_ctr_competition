@@ -4,12 +4,13 @@
 @time: 2019/06/05
 """
 
-from csv import DictReader
 import pandas as pd
 import numpy as np
+from pprint import pprint
 
-from sklearn.feature_extraction import DictVectorizer, FeatureHasher
+from sklearn.feature_extraction import FeatureHasher
 from sklearn.preprocessing import LabelBinarizer
+from scipy.sparse import coo_matrix, hstack, csr_matrix
 
 meta_info = pd.DataFrame([{"col": "id", "unique_count": 40428967},
                           {"col": "click", "unique_count": 2},
@@ -36,39 +37,44 @@ meta_info = pd.DataFrame([{"col": "id", "unique_count": 40428967},
                           {"col": "C20", "unique_count": 172},
                           {"col": "C21", "unique_count": 60}])
 
+type_mapper = {'id': 'uint64',
+               'click': 'int64',
+               'C1': 'object',
+               'banner_pos': 'object',
+               'site_id': 'object',
+               'site_domain': 'object',
+               'site_category': 'object',
+               'app_id': 'object',
+               'app_domain': 'object',
+               'app_category': 'object',
+               'device_id': 'object',
+               'device_ip': 'object',
+               'device_model': 'object',
+               'device_type': 'object',
+               'device_conn_type': 'object',
+               'C14': 'object',
+               'C15': 'object',
+               'C16': 'object',
+               'C17': 'object',
+               'C18': 'object',
+               'C19': 'object',
+               'C20': 'object',
+               'C21': 'object',
+               'year': 'object',
+               'month': 'object',
+               'day': 'object',
+               'hour': 'object'}
+
+SAMPLE_SIZE = 5000000
 HASH_THRESHOLD = 100
 MAPPER = {}
 
 
-def read_df(col):
-    type_mapper = {'id': 'uint64',
-                   'click': 'int64',
-                   'C1': 'object',
-                   'banner_pos': 'object',
-                   'site_id': 'object',
-                   'site_domain': 'object',
-                   'site_category': 'object',
-                   'app_id': 'object',
-                   'app_domain': 'object',
-                   'app_category': 'object',
-                   'device_id': 'object',
-                   'device_ip': 'object',
-                   'device_model': 'object',
-                   'device_type': 'object',
-                   'device_conn_type': 'object',
-                   'C14': 'object',
-                   'C15': 'object',
-                   'C16': 'object',
-                   'C17': 'object',
-                   'C18': 'object',
-                   'C19': 'object',
-                   'C20': 'object',
-                   'C21': 'object',
-                   'year': 'object',
-                   'month': 'object',
-                   'day': 'object',
-                   'hour': 'object'}
-    df = pd.read_csv("../data/train.csv", usecols=[col], nrows=10000000, dtype=type_mapper)  # FIXME：正式运行时跑全量的数据
+def read_df(col, sample_size=-1):
+    if sample_size == -1:
+        df = pd.read_csv("../data/train.csv", usecols=[col], nrows=100, dtype=type_mapper)
+    else:
+        df = pd.read_csv("../data/train.csv", usecols=[col], nrows=sample_size, dtype=type_mapper)
     return df
 
 
@@ -136,7 +142,7 @@ def feature_extraction(df):
             MAPPER.update({col: transfer})
 
 
-def main():
+def fit_mapper():
     # 抽取hour数据，类型转换
 
     all_columns = ['C1',
@@ -162,11 +168,22 @@ def main():
                    'C21',
                    'hour']
     for col in all_columns:
-        df = read_df(col)
+        df = read_df(col, SAMPLE_SIZE)
         if col == 'hour':
             df = extract_time(df)
         feature_extraction(df)
+    return MAPPER
 
 
-if __name__ == '__main__':
-    main()
+def feature_transform(df, mapper):
+    blocks_data = []
+    for col in df.columns:
+        print("col is:{}".format(col))
+        the_mapper = mapper.get(col)
+        if the_mapper:
+            clean_col_data = the_mapper.transform(df[col])
+            blocks_data.append(clean_col_data)
+        else:
+            print('error!!!')
+    clean_data = hstack(blocks_data)
+    return clean_data
