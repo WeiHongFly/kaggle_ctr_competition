@@ -7,15 +7,9 @@
 from csv import DictReader
 import pandas as pd
 import numpy as np
-from sklearn.feature_extraction.hashing import FeatureHasher
 
-from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import auc, roc_auc_score, accuracy_score
-from csv import DictReader
-from sklearn.feature_extraction import DictVectorizer, FeatureHasher, dict_vectorizer
-from sklearn.preprocessing import LabelBinarizer, LabelEncoder
-from sklearn.feature_extraction.text import HashingVectorizer
-from sklearn_pandas import DataFrameMapper, cross_val_score
+from sklearn.feature_extraction import DictVectorizer, FeatureHasher
+from sklearn.preprocessing import LabelBinarizer
 
 meta_info = pd.DataFrame([{"col": "id", "unique_count": 40428967},
                           {"col": "click", "unique_count": 2},
@@ -43,6 +37,7 @@ meta_info = pd.DataFrame([{"col": "id", "unique_count": 40428967},
                           {"col": "C21", "unique_count": 60}])
 
 HASH_THRESHOLD = 100
+MAPPER = {}
 
 
 def read_df(col):
@@ -73,13 +68,13 @@ def read_df(col):
                    'month': 'object',
                    'day': 'object',
                    'hour': 'object'}
-    df = pd.read_csv("../data/train.csv", usecols=[col], nrows=100, dtype=type_mapper)  # FIXME：正式运行时跑全量的数据
+    df = pd.read_csv("../data/train.csv", usecols=[col], nrows=10000000, dtype=type_mapper)  # FIXME：正式运行时跑全量的数据
     return df
 
 
 def extract_time(df):
     df = df.rename(index=str, columns={"hour": "time_info"})
-    df = df.astype(dtype={"time_info": str})
+    df = df.astype(dtype={"time_info": np.str})
 
     year_unique_count = df.time_info.str[:2].unique().shape[0]
     if year_unique_count > 1:
@@ -101,28 +96,44 @@ def extract_time(df):
         df.loc[:, "hour"] = df.time_info.str[6:8]
         meta_info.append(pd.Series({"col": "hour", "unique_count": hour_unique_count}), ignore_index=True)
 
-    df.drop(columns=["time_info"])
+    df = df.drop(columns=["time_info"])
     if not df.empty:
         return df
     else:
-        return None
+        return pd.DataFrame()
 
 
-def column_hash(df):
-    pass
+def column_hash(df, col):
+    # TODO：待优化，转成超参数。
+    col_unique_count = meta_info.loc[meta_info["col"] == col, "unique_count"].tolist()[0]
+
+    if int((col_unique_count / 2)) > 100:
+        n_features = 100
+    else:
+        n_features = int(col_unique_count / 2)
+    f = FeatureHasher(input_type="string", n_features=n_features)
+    return f
 
 
-def columns_binary(df):
-    pass
+def columns_binary(df, col):
+    l = LabelBinarizer()
+    l.fit(df[col])
+    return l
 
 
 def feature_extraction(df):
+    if df.empty: return
     cols = df.columns
     for col in cols:
-        if meta_info[meta_info[col] <= HASH_THRESHOLD].at[0, "unique_count"]:
-            print("col:{} will be processed by feature hash")
+        if meta_info.loc[meta_info["col"] == col, "unique_count"].tolist()[0] > HASH_THRESHOLD:
+            print("col:{} will be processed by feature hash".format(col))
+            transfer = column_hash(df, col)
+            MAPPER.update({col: transfer})
+
         else:
-            print("col:{} will be processed by feature binary")
+            print("col:{} will be processed by feature binary".format(col))
+            transfer = columns_binary(df, col)
+            MAPPER.update({col: transfer})
 
 
 def main():
