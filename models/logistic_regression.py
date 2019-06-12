@@ -12,6 +12,7 @@ import joblib
 from datetime import datetime
 import time
 import math
+from sklearn.metrics import log_loss
 
 columns = ['id',
            'click',
@@ -38,8 +39,8 @@ columns = ['id',
            'C20',
            'C21']
 
-batch_size = 50000
-epoch = math.ceil(40428967 / 50000)
+batch_size = 200
+epoch = math.ceil(40428967 / 2000)
 
 
 # epoch = 3
@@ -73,6 +74,7 @@ class TrainModel(object):
             self.mapper = train_mapper()
             joblib.dump(self.mapper, self.mapper_path, compress=7)
         else:
+            print("mapper has been pickled")
             self.mapper = joblib.load(self.mapper)
 
     def train_model(self):
@@ -87,17 +89,24 @@ class TrainModel(object):
             clean_df = feature_transform(batch_df, self.mapper)
             classes = [0, 1] if i == 0 else None
             self.model.partial_fit(clean_df, label, classes=classes)
-            print("THE STEP SCORE:{}".format(self.model.score(clean_df, label)))
+            y_pre = self.model.predict_proba(clean_df)
+            loss = log_loss(label, y_pre)
+            print("THE STEP LOG_LOSS:{}".format(loss))
             print("USE TIME {}".format(time.time() - s))
 
-    def main(self):
+    def main_model(self):
         print("START:{}".format(datetime.now()))
-        self.train_mapper()
         self.train_model()
         joblib.dump(self.model, self.model_path, compress=7)
+        print("END:{}".format(datetime.now()))
+
+    def main_mapper(self):
+        print("START:{}".format(datetime.now()))
+        self.train_mapper()
         print("END:{}".format(datetime.now()))
 
 
 if __name__ == '__main__':
     m = TrainModel()
-    m.main()
+    m.main_mapper()
+    m.main_model()
