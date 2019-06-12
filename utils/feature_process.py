@@ -6,15 +6,13 @@
 
 import pandas as pd
 import numpy as np
-from pprint import pprint
-
 from sklearn.feature_extraction import FeatureHasher
 from sklearn.preprocessing import LabelBinarizer
-from scipy.sparse import coo_matrix, hstack, csr_matrix
+from scipy.sparse import hstack
 
-meta_info = pd.DataFrame([{"col": "id", "unique_count": 40428967},
+META_INFO = pd.DataFrame([{"col": "id", "unique_count": 40428967},
                           {"col": "click", "unique_count": 2},
-                          {"col": "hour", "unique_count": 240},
+                          # {"col": "hour", "unique_count": 240},
                           {"col": "C1", "unique_count": 7},
                           {"col": "banner_pos", "unique_count": 7},
                           {"col": "site_id", "unique_count": 4737},
@@ -65,7 +63,8 @@ type_mapper = {'id': 'uint64',
                'day': 'object',
                'hour': 'object'}
 
-SAMPLE_SIZE = 5000000
+SAMPLE_SIZE = 40428967
+# SAMPLE_SIZE = 40428
 HASH_THRESHOLD = 100
 MAPPER = {}
 
@@ -78,40 +77,37 @@ def read_df(col, sample_size=-1):
     return df
 
 
-def extract_time(df):
+def extract_time(df, meta_info):
     df = df.rename(index=str, columns={"hour": "time_info"})
     df = df.astype(dtype={"time_info": np.str})
+    all_meta_info = meta_info.copy()
 
     year_unique_count = df.time_info.str[:2].unique().shape[0]
-    if year_unique_count > 1:
-        df.loc[:, "year"] = df.time_info.str[:2]
-        meta_info.append(pd.Series({"col": "year", "unique_count": year_unique_count}), ignore_index=True)
+    df.loc[:, "year"] = df.time_info.str[:2]
+    all_meta_info = all_meta_info.append(pd.Series({"col": "year", "unique_count": year_unique_count}), ignore_index=True)
 
     month_unique_count = df.time_info.str[2:4].unique().shape[0]
-    if month_unique_count > 1:
-        df.loc[:, "month"] = df.time_info.str[2:4]
-        meta_info.append(pd.Series({"col": "month", "unique_count": month_unique_count}), ignore_index=True)
+    df.loc[:, "month"] = df.time_info.str[2:4]
+    all_meta_info = all_meta_info.append(pd.Series({"col": "month", "unique_count": month_unique_count}), ignore_index=True)
 
     day_unique_count = df.time_info.str[4:6].unique().shape[0]
-    if day_unique_count > 1:
-        df.loc[:, "day"] = df.time_info.str[4:6]
-        meta_info.append(pd.Series({"col": "day", "unique_count": day_unique_count}), ignore_index=True)
+    df.loc[:, "day"] = df.time_info.str[4:6]
+    all_meta_info = all_meta_info.append(pd.Series({"col": "day", "unique_count": day_unique_count}), ignore_index=True)
 
     hour_unique_count = df.time_info.str[6:8].unique().shape[0]
-    if hour_unique_count > 1:
-        df.loc[:, "hour"] = df.time_info.str[6:8]
-        meta_info.append(pd.Series({"col": "hour", "unique_count": hour_unique_count}), ignore_index=True)
+    df.loc[:, "hour"] = df.time_info.str[6:8]
+    all_meta_info = all_meta_info.append(pd.Series({"col": "hour", "unique_count": hour_unique_count}), ignore_index=True)
 
     df = df.drop(columns=["time_info"])
     if not df.empty:
-        return df
+        return df, all_meta_info
     else:
-        return pd.DataFrame()
+        return pd.DataFrame(), all_meta_info
 
 
-def column_hash(df, col):
+def column_hash(df, col, all_meta_info):
     # TODO：待优化，转成超参数。
-    col_unique_count = meta_info.loc[meta_info["col"] == col, "unique_count"].tolist()[0]
+    col_unique_count = all_meta_info.loc[all_meta_info["col"] == col, "unique_count"].tolist()[0]
 
     if int((col_unique_count / 2)) > 100:
         n_features = 100
@@ -127,13 +123,13 @@ def columns_binary(df, col):
     return l
 
 
-def feature_extraction(df):
+def feature_extraction(df, all_meta_info):
     if df.empty: return
     cols = df.columns
     for col in cols:
-        if meta_info.loc[meta_info["col"] == col, "unique_count"].tolist()[0] > HASH_THRESHOLD:
+        if all_meta_info.loc[all_meta_info["col"] == col, "unique_count"].tolist()[0] > HASH_THRESHOLD:
             print("col:{} will be processed by feature hash".format(col))
-            transfer = column_hash(df, col)
+            transfer = column_hash(df, col, all_meta_info)
             MAPPER.update({col: transfer})
 
         else:
@@ -142,9 +138,7 @@ def feature_extraction(df):
             MAPPER.update({col: transfer})
 
 
-def fit_mapper():
-    # 抽取hour数据，类型转换
-
+def train_mapper():
     all_columns = ['C1',
                    'banner_pos',
                    'site_id',
@@ -167,18 +161,18 @@ def fit_mapper():
                    'C20',
                    'C21',
                    'hour']
+    all_meta_info = META_INFO
     for col in all_columns:
         df = read_df(col, SAMPLE_SIZE)
         if col == 'hour':
-            df = extract_time(df)
-        feature_extraction(df)
+            df, all_meta_info = extract_time(df, META_INFO)
+        feature_extraction(df, all_meta_info)
     return MAPPER
 
 
 def feature_transform(df, mapper):
     blocks_data = []
     for col in df.columns:
-        print("col is:{}".format(col))
         the_mapper = mapper.get(col)
         if the_mapper:
             clean_col_data = the_mapper.transform(df[col])
@@ -187,3 +181,7 @@ def feature_transform(df, mapper):
             print('error!!!')
     clean_data = hstack(blocks_data)
     return clean_data
+
+
+if __name__ == '__main__':
+    train_mapper()
