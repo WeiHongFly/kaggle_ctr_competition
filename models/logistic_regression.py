@@ -12,7 +12,7 @@ import joblib
 from datetime import datetime
 import time
 import math
-from sklearn.metrics import log_loss
+from sklearn.metrics import log_loss, confusion_matrix, auc
 
 columns = ['id',
            'click',
@@ -39,8 +39,8 @@ columns = ['id',
            'C20',
            'C21']
 
-batch_size = 200
-epoch = math.ceil(40428967 / 2000)
+batch_size = 100
+epoch = math.ceil(40428967 / 100)
 
 
 # epoch = 3
@@ -105,8 +105,35 @@ class TrainModel(object):
         self.train_mapper()
         print("END:{}".format(datetime.now()))
 
+    def validation_regression(self):
+        if os.path.exists(self.model_path) and os.path.exists(self.mapper_path):
+            model = joblib.load(self.model_path)
+            mapper = joblib.load(self.mapper_path)
+            loss_list = []
+            for i in range(epoch):
+                batch_df = self.df_obj.get_chunk(batch_size)
+                label = batch_df["click"]
+                id = batch_df["id"]
+                batch_df = batch_df.drop(columns=["id", "click"])
+                batch_df = extract_time(batch_df)
+                clean_df = feature_transform(batch_df, mapper)
+                y_pre_proba = model.predict_proba(clean_df)
+                y_pre_label = model.predict(clean_df)
+                loss = log_loss(label, y_pre_proba)
+                loss_list.append((label.shape[0], loss))
+            df = pd.DataFrame(loss_list, columns=["size", "loss"])
+            df.loc[:, "batch_loss_sum"] = df["size"] * df["loss"]
+            loss = (df["batch_loss_sum"].sum()) / (df["size"].sum())
+            print("LOSS:{}".format(loss))
+
+
+
+        else:
+            print("model and mapper not exists")  # 0.4373294089990498
+
 
 if __name__ == '__main__':
     m = TrainModel()
-    m.main_mapper()
-    m.main_model()
+    # m.main_mapper()
+    # m.main_model()
+    m.validation_regression()
