@@ -40,7 +40,7 @@ columns = ['id',
            'C21']
 
 batch_size = 100
-epoch = math.ceil(40428967 / 100)
+epoch = math.ceil(40428967 / 100)  # 需要epoch次可将全部数据取完
 
 
 # epoch = 3

@@ -6,14 +6,15 @@ bagging
 """
 
 import pandas as pd
-import numpy as np
-import random
-import os
 
 
-def main():
-    pass
-
-
-if __name__ == '__main__':
-    main()
+def sample_df(df, random_state=None, frac=0.1):
+    "随机采样"
+    if not isinstance(df, pd.DataFrame):
+        raise TypeError("Sampling object must be pandas.DataFrame")
+    test_df = df.sample(frac=frac, random_state=random_state)
+    train_df_index = df.index.difference(test_df.index)
+    train_df = df.loc[train_df_index]
+    test_df.reset_index(drop=True, inplace=True)
+    train_df.reset_index(drop=True, inplace=True)
+    return train_df, test_df
