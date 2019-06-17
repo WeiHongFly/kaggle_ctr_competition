@@ -1,5 +1,4 @@
 .idea/
-notebooks/.ipynb_checkpoints/
-#data/
+notebooks/.ipynb_checkpoints/*
 models/model_persistence/
 utils/__pycache__/
