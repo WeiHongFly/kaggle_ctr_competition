@@ -82,7 +82,7 @@ class TrainModel(object):
             'verbose': 3
         }
 
-        gbm = lgb.train(params, lgb_train, num_boost_round=self.num_tree, valid_sets=lgb_train)
+        gbm = lgb.train(params, lgb_train, num_boost_round=self.num_tree, valid_sets=lgb_eval)
         gbm.save_model("../model_persistence/gbdt.txt")
         self.gbm = gbm
 

@@ -6,7 +6,7 @@
 import os
 import pandas as pd
 import numpy as np
-from utils.feature_process import train_mapper, type_mapper, feature_transform
+from ..utils.feature_process import train_mapper, type_mapper, feature_transform
 from sklearn.linear_model import SGDClassifier
 import joblib
 from datetime import datetime
@@ -134,6 +134,6 @@ class TrainModel(object):
 
 if __name__ == '__main__':
     m = TrainModel()
-    # m.main_mapper()
-    # m.main_model()
+    m.main_mapper()
+    m.main_model()
     m.validation_regression()
